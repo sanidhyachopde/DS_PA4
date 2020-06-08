@@ -1,29 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "/Users/sanidhya/AndroidStudioProjects/SimpleDynamo/app/build/intermediates/incremental/mergeDebugResources/merged.dir/values/values.xml",
+            "outputFile": "/Users/sanidhya/2ndSem/DistributedSystems/PA4/FinalSubmission/SimpleDynamo/app/build/intermediates/incremental/mergeDebugResources/merged.dir/values/values.xml",
             "map": [
                 {
-                    "source": "/Users/sanidhya/AndroidStudioProjects/SimpleDynamo/app/src/main/res/values/styles.xml",
-                    "from": {
-                        "startLines": "6,15",
-                        "startColumns": "4,4",
-                        "startOffsets": "186,510",
-                        "endLines": "12,17",
-                        "endColumns": "12,12",
-                        "endOffsets": "472,665"
-                    },
-                    "to": {
-                        "startLines": "6,13",
-                        "startColumns": "4,4",
-                        "startOffsets": "272,563",
-                        "endLines": "12,15",
-                        "endColumns": "12,12",
-                        "endOffsets": "558,718"
-                    }
-                },
-                {
-                    "source": "/Users/sanidhya/AndroidStudioProjects/SimpleDynamo/app/src/main/res/values/dimens.xml",
+                    "source": "/Users/sanidhya/2ndSem/DistributedSystems/PA4/FinalSubmission/SimpleDynamo/app/src/main/res/values/dimens.xml",
                     "from": {
                         "startLines": "3,4",
                         "startColumns": "4,4",
@@ -40,7 +21,7 @@
                     }
                 },
                 {
-                    "source": "/Users/sanidhya/AndroidStudioProjects/SimpleDynamo/app/src/main/res/values/strings.xml",
+                    "source": "/Users/sanidhya/2ndSem/DistributedSystems/PA4/FinalSubmission/SimpleDynamo/app/src/main/res/values/strings.xml",
                     "from": {
                         "startLines": "4,3",
                         "startColumns": "4,4",
@@ -54,6 +35,25 @@
                         "startOffsets": "169,222",
                         "endColumns": "52,49",
                         "endOffsets": "217,267"
+                    }
+                },
+                {
+                    "source": "/Users/sanidhya/2ndSem/DistributedSystems/PA4/FinalSubmission/SimpleDynamo/app/src/main/res/values/styles.xml",
+                    "from": {
+                        "startLines": "6,15",
+                        "startColumns": "4,4",
+                        "startOffsets": "186,510",
+                        "endLines": "12,17",
+                        "endColumns": "12,12",
+                        "endOffsets": "472,665"
+                    },
+                    "to": {
+                        "startLines": "6,13",
+                        "startColumns": "4,4",
+                        "startOffsets": "272,563",
+                        "endLines": "12,15",
+                        "endColumns": "12,12",
+                        "endOffsets": "558,718"
                     }
                 }
             ]

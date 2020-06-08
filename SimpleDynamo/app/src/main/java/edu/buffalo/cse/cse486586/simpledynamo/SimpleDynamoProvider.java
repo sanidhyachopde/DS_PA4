@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.util.Pair;
 
 
 import java.io.BufferedInputStream;
@@ -58,7 +59,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 	ArrayList<String> messageKeys = new ArrayList<String>();
 
 	@Override
-	public int delete(Uri uri, String selection, String[] selectionArgs) {
+	public synchronized int delete(Uri uri, String selection, String[] selectionArgs) {
 		// TODO Auto-generated method stub
 		if(selection.equals("@"))
 		{
@@ -86,7 +87,39 @@ public class SimpleDynamoProvider extends ContentProvider {
 		}
 		else {
 			//Multiple nodes, single key case.
-			this.findKeyPosition(selection);
+//			this.findKeyPosition(selection);
+			String hashedKey = "";
+
+			try {
+				hashedKey = genHash(selection);
+			} catch (NoSuchAlgorithmException e) {
+				e.printStackTrace();
+			}
+			messageKeys.add(hashedKey);
+			Collections.sort(messageKeys);
+			int keyIndex = messageKeys.indexOf(hashedKey);
+
+			if(keyIndex == 3) {
+				node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+				node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
+				node3 = hashedNodes.get(messageKeys.get(0));
+			}
+			else if(keyIndex == 4) {
+				node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+				node2 = hashedNodes.get(messageKeys.get(0));
+				node3 = hashedNodes.get(messageKeys.get(1));
+			}
+			else if(keyIndex == 5) {
+				node1 = hashedNodes.get(messageKeys.get(0));
+				node2 = hashedNodes.get(messageKeys.get(1));
+				node3 = hashedNodes.get(messageKeys.get(2));
+			}
+			else {
+				node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+				node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
+				node3 = hashedNodes.get(messageKeys.get(keyIndex+3));
+			}
+			messageKeys.remove(keyIndex);
 
 			ArrayList<String> keyNodes = new ArrayList<String>();
 			keyNodes.add(node1);
@@ -117,8 +150,15 @@ public class SimpleDynamoProvider extends ContentProvider {
 	}
 
 	@Override
-	public Uri insert(Uri uri, ContentValues values) {
+	public synchronized Uri insert(Uri uri, ContentValues values) {
 		// TODO Auto-generated method stub
+		try
+		{
+			Thread.sleep(500);
+		}catch (Exception e)
+		{
+
+		}
 
 		Object key = null;
 		Object value = null;
@@ -128,9 +168,41 @@ public class SimpleDynamoProvider extends ContentProvider {
 			value = values.get("value");
 		}
 
-		this.findKeyPosition(key.toString());
+//		this.findKeyPosition(key.toString());
+		String hashedKey = "";
 
-		System.out.println("For port: "+myPort+", Node 1 is: "+ node1+", Node 2 is: "+ node2+", Node 3 is: "+ node3+" & key is: "+key);
+		try {
+			hashedKey = genHash(key.toString());
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+		messageKeys.add(hashedKey);
+		Collections.sort(messageKeys);
+		int keyIndex = messageKeys.indexOf(hashedKey);
+
+		if(keyIndex == 3) {
+			node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+			node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
+			node3 = hashedNodes.get(messageKeys.get(0));
+		}
+		else if(keyIndex == 4) {
+			node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+			node2 = hashedNodes.get(messageKeys.get(0));
+			node3 = hashedNodes.get(messageKeys.get(1));
+		}
+		else if(keyIndex == 5) {
+			node1 = hashedNodes.get(messageKeys.get(0));
+			node2 = hashedNodes.get(messageKeys.get(1));
+			node3 = hashedNodes.get(messageKeys.get(2));
+		}
+		else {
+			node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+			node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
+			node3 = hashedNodes.get(messageKeys.get(keyIndex+3));
+		}
+		messageKeys.remove(keyIndex);
+
+//		System.out.println("For port: "+myPort+", Node 1 is: "+ node1+", Node 2 is: "+ node2+", Node 3 is: "+ node3+" & key is: "+key);
 
 		String packetToSend = "insertmsg" + "//" + node1 + "//" + node2 + "//" + node3 + "//" + key + "//" + value;
 		new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, packetToSend);
@@ -144,6 +216,17 @@ public class SimpleDynamoProvider extends ContentProvider {
 		TelephonyManager tel = (TelephonyManager) this.getContext().getSystemService(Context.TELEPHONY_SERVICE);
 		portStr = tel.getLine1Number().substring(tel.getLine1Number().length() - 4);
 		myPort = String.valueOf((Integer.parseInt(portStr) * 2));
+
+		File dirName = getContext().getFilesDir();
+		if (dirName.isDirectory())
+		{
+			String[] files = dirName.list();
+			for (int i = 0; i < files.length; i++)
+			{
+				System.out.println("deleting files in on create");
+				new File(dirName, files[i]).delete();
+			}
+		}
 
 		try
 		{
@@ -209,16 +292,6 @@ public class SimpleDynamoProvider extends ContentProvider {
 			previousNode2 = hashedNodes.get(messageKeys.get(currIndex-2));
 		}
 
-		File dirName = getContext().getFilesDir();
-		if (dirName.isDirectory())
-		{
-			String[] children = dirName.list();
-			for (int i = 0; i < children.length; i++)
-			{
-				new File(dirName, children[i]).delete();
-			}
-		}
-
 		String packet = "recovery" +"//"+ previousNode1 +"//"+ previousNode2 + "//"+ nextNode + "//" + nextNode2;
 		new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, packet);
 
@@ -231,8 +304,16 @@ public class SimpleDynamoProvider extends ContentProvider {
 		// TODO Auto-generated method stub
 		String value = "";
 		MatrixCursor cursor = new MatrixCursor(new String[]{"key", "value"});
+
+//		try
+//		{
+//			Thread.sleep(300);
+//		}catch (Exception e)
+//		{
+//
+//		}
 		if (selection.equals("@")) {
-			System.out.println("Multiple nodes @");
+//			System.out.println("Multiple nodes @");
 
 			File dirName = getContext().getFilesDir();
 			File files[] = dirName.listFiles();
@@ -251,7 +332,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 			}
 			return cursor;
 		} else if (selection.equals("*")) {
-			System.out.println("Multiple nodes *");
+//			System.out.println("Multiple nodes *");
 			try {
 				for (String node : hashedNodes.values()) {
 					Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
@@ -281,9 +362,44 @@ public class SimpleDynamoProvider extends ContentProvider {
 				e.printStackTrace();
 			}
 		} else {
-			System.out.println("Multiple avds, single key");
+//			System.out.println("Multiple avds, single key");
 			MatrixCursor cursor1 = new MatrixCursor(new String[]{"key", "value"});
-			this.findKeyPosition(selection);
+//			this.findKeyPosition(selection);
+//			TreeMap<String,Integer> voting = new TreeMap<String, Integer>();
+//			ArrayList <Pair <String,String> > keyValues = new ArrayList <Pair <String,String> > ();
+
+			String hashedKey = "";
+
+			try {
+				hashedKey = genHash(selection);
+			} catch (NoSuchAlgorithmException e) {
+				e.printStackTrace();
+			}
+			messageKeys.add(hashedKey);
+			Collections.sort(messageKeys);
+			int keyIndex = messageKeys.indexOf(hashedKey);
+
+			if(keyIndex == 3) {
+				node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+				node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
+				node3 = hashedNodes.get(messageKeys.get(0));
+			}
+			else if(keyIndex == 4) {
+				node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+				node2 = hashedNodes.get(messageKeys.get(0));
+				node3 = hashedNodes.get(messageKeys.get(1));
+			}
+			else if(keyIndex == 5) {
+				node1 = hashedNodes.get(messageKeys.get(0));
+				node2 = hashedNodes.get(messageKeys.get(1));
+				node3 = hashedNodes.get(messageKeys.get(2));
+			}
+			else {
+				node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
+				node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
+				node3 = hashedNodes.get(messageKeys.get(keyIndex+3));
+			}
+			messageKeys.remove(keyIndex);
 
 			ArrayList<String> keyNodes = new ArrayList<String>();
 			keyNodes.add(node1);
@@ -296,19 +412,26 @@ public class SimpleDynamoProvider extends ContentProvider {
 							Integer.parseInt(node));
 
 					DataOutputStream output = new DataOutputStream(socket.getOutputStream());
-					output.writeUTF("ReturnOne" + "//" + node + "//" + selection);
+					output.writeUTF("ReturnOne" + "//" + node1 + "//" + selection);
 
 					String packet = "";
 					try {
 						DataInputStream input = new DataInputStream(socket.getInputStream());
 						packet = input.readUTF();
 					} catch (Exception w) {
-
+//						System.out.println("Exception caught in query");
 					}
 					if(!packet.equals("")) {
 						String keyvalue[] = packet.split("_");
 						String splitPacket[] = keyvalue[1].split("@@");
+//						keyValues.add(new Pair<String, String>(keyvalue[0], splitPacket[0]));
 						cursor1.addRow(new String[]{keyvalue[0], splitPacket[0]});
+//						System.out.println("In voting, key is: "+keyvalue[0]+" & value is: "+splitPacket[0]);
+//						if(!voting.keySet().contains(splitPacket[0]))
+//							voting.put(splitPacket[0],1);
+//						else {
+//							voting.put(splitPacket[0], (voting.get(splitPacket[0]) + 1));
+//						}
 					}
 				} catch (UnknownHostException e) {
 					e.printStackTrace();
@@ -316,6 +439,26 @@ public class SimpleDynamoProvider extends ContentProvider {
 					e.printStackTrace();
 				}
 			}
+
+//			int max = Collections.max(voting.values());
+//			String finalValue = "";
+//			for(TreeMap.Entry<String,Integer> v : voting.entrySet())
+//			{
+//				if(v.getValue() == (max))
+//				{
+//					finalValue = v.getKey();
+//				}
+//			}
+
+//			if(!finalValue.equals("")) {
+//				for (Pair<String,String> kv : keyValues) {
+//					if (kv.second.equals(finalValue)) {
+//						cursor1.addRow(new String[]{kv.first, kv.second});
+////						System.out.println("Chosen value for key: " + kv.first + " after voting is: " + kv.second+", max is: "+max);
+//					}
+//				}
+//			}
+//			cursor1.addRow(new String[]{selection, finalValue});
 			return cursor1;
 		}
 		return null;
@@ -331,7 +474,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 	private class ServerTask extends AsyncTask<ServerSocket, String, Void> {
 
 		@Override
-		protected Void doInBackground(ServerSocket... serverSockets) {
+		protected synchronized Void doInBackground(ServerSocket... serverSockets) {
 			ServerSocket serverSocket = serverSockets[0];
 			try {
 				while (true) {
@@ -345,10 +488,16 @@ public class SimpleDynamoProvider extends ContentProvider {
 					if (splitPacket[0].equals("insertmsg")) {
 						FileOutputStream outputStream;
 						try {
+
+							File file = new File(getContext().getFilesDir(),splitPacket[2]);
+							if(file.exists()) {
+								System.out.println("Deleting file in insert");
+								file.delete();
+							}
 							outputStream = getContext().openFileOutput(splitPacket[2], Context.MODE_PRIVATE);
 							String valueToInsert = splitPacket[3] + "@@" + splitPacket[1];
 							outputStream.write(valueToInsert.getBytes());
-							System.out.println("Written file in port: " + splitPacket[1] + ", key: " + splitPacket[2] + " & value: " + splitPacket[3]);
+//							System.out.println("Written file in port: " + splitPacket[1] + ", key: " + splitPacket[2] + " & value: " + splitPacket[3]);
 							outputStream.close();
 						} catch (Exception e) {
 							Log.e(TAG, "File write failed");
@@ -361,7 +510,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 						for (File key : files) {
 							BufferedReader br = new BufferedReader(new FileReader(key));
 							String value = br.readLine();
-							System.out.println("Recovery value is: " + value);
+//							System.out.println("Recovery value is: " + value);
 							String splitValue[] = value.split("@@");
 							if (splitValue[1].equals(splitPacket[1])) {
 								String keyvalue = key.getName() + "##" + value;
@@ -387,7 +536,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 							DataOutputStream finalOut = new DataOutputStream(socket.getOutputStream());
 							finalOut.writeUTF(finalMessages);
 						} else if (splitPacket[0].equals("ReturnOne")) {
-							System.out.println("Inside return one case in server");
+//							System.out.println("Inside return one case in server");
 							File dirName = getContext().getFilesDir();
 							File files[] = dirName.listFiles();
 							for (File key : files) {
@@ -395,8 +544,10 @@ public class SimpleDynamoProvider extends ContentProvider {
 									try {
 										BufferedReader br = new BufferedReader(new FileReader(key));
 										String value = br.readLine();
-										DataOutputStream outOne = new DataOutputStream(socket.getOutputStream());
-										outOne.writeUTF(splitPacket[2] + "_" + value);
+										if(value.contains(splitPacket[1])) {
+											DataOutputStream outOne = new DataOutputStream(socket.getOutputStream());
+											outOne.writeUTF(splitPacket[2] + "_" + value);
+										}
 									} catch (IOException e) {
 										e.printStackTrace();
 									} catch (RuntimeException e) {
@@ -431,7 +582,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 	private class ClientTask extends AsyncTask<String, String, String> {
 
 		protected String doInBackground(String... msgs) {
-			System.out.println("Inside Client Task");
+//			System.out.println("Inside Client Task");
 			String packet[] = msgs[0].split("//");
 
 
@@ -467,14 +618,13 @@ public class SimpleDynamoProvider extends ContentProvider {
 				recoveryNodes.add(packet[1]);
 				recoveryNodes.add(packet[2]);
 				recoveryNodes.add(packet[3]);
-				recoveryNodes.add(packet[4]);
 
 				for (String node : recoveryNodes) {
 
 					try {
-						System.out.println("For node: " + myPort + ", recovery node is: " + node);
+//						System.out.println("For node: " + myPort + ", recovery node is: " + node);
 						String nodeToSend = "";
-						if (node.equals(nextNode) || node.equals(nextNode2))
+						if (node.equals(nextNode))// || node.equals(nextNode2))
 							nodeToSend = myPort;
 						else
 							nodeToSend = node;
@@ -487,30 +637,34 @@ public class SimpleDynamoProvider extends ContentProvider {
 						output.flush();
 
 						String packet1 = "";
-						DataInputStream input = new DataInputStream(socket.getInputStream());
-						try{
+
+						try {
+							DataInputStream input = new DataInputStream(socket.getInputStream());
 							packet1 = input.readUTF();
+
+
+							if (!packet1.equals("")) {
+								String keyvalue[] = packet1.split("_");
+								for (String parts : keyvalue) {
+									String part[] = parts.split("##");
+									String key = part[0];
+									String value = part[1];
+
+									FileOutputStream outputStream;
+									try {
+										outputStream = getContext().openFileOutput(key, Context.MODE_PRIVATE);
+										outputStream.write(value.getBytes());
+//									System.out.println("Written file in port: " + myPort + ", key: " + key + " & value: " + value);
+										outputStream.close();
+									} catch (Exception e) {
+										Log.e(TAG, "File write failed");
+										e.printStackTrace();
+									}
+								}
+
+							}
 						} catch (Exception e) {
 
-						}
-						if (!packet1.equals("")) {
-							String keyvalue[] = packet1.split("_");
-							for (String parts : keyvalue) {
-								String part[] = parts.split("##");
-								String key = part[0];
-								String value = part[1];
-
-								FileOutputStream outputStream;
-								try {
-									outputStream = getContext().openFileOutput(key, Context.MODE_PRIVATE);
-									outputStream.write(value.getBytes());
-									System.out.println("Written file in port: " + myPort + ", key: " + key + " & value: " + value);
-									outputStream.close();
-								} catch (Exception e) {
-									Log.e(TAG, "File write failed");
-									e.printStackTrace();
-								}
-							}
 						}
 
 					} catch (UnknownHostException e) {
@@ -524,7 +678,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 		}
 	}
 
-    private String genHash(String input) throws NoSuchAlgorithmException {
+	private String genHash(String input) throws NoSuchAlgorithmException {
         MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
         byte[] sha1Hash = sha1.digest(input.getBytes());
         Formatter formatter = new Formatter();
@@ -533,40 +687,4 @@ public class SimpleDynamoProvider extends ContentProvider {
         }
         return formatter.toString();
     }
-
-    private void findKeyPosition(String key)
-	{
-		String hashedKey = "";
-
-		try {
-			hashedKey = genHash(key);
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
-		messageKeys.add(hashedKey);
-		Collections.sort(messageKeys);
-		int keyIndex = messageKeys.indexOf(hashedKey);
-
-		if(keyIndex == 3) {
-			node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
-			node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
-			node3 = hashedNodes.get(messageKeys.get(0));
-		}
-		else if(keyIndex == 4) {
-			node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
-			node2 = hashedNodes.get(messageKeys.get(0));
-			node3 = hashedNodes.get(messageKeys.get(1));
-		}
-		else if(keyIndex == 5) {
-			node1 = hashedNodes.get(messageKeys.get(0));
-			node2 = hashedNodes.get(messageKeys.get(1));
-			node3 = hashedNodes.get(messageKeys.get(2));
-		}
-		else {
-			node1 = hashedNodes.get(messageKeys.get(keyIndex+1));
-			node2 = hashedNodes.get(messageKeys.get(keyIndex+2));
-			node3 = hashedNodes.get(messageKeys.get(keyIndex+3));
-		}
-		messageKeys.remove(keyIndex);
-	}
 }
